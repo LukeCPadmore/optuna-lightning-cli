@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "optuna-lightning-cli"
+version = "0.1.0"
+description = "A small Typer CLI for tuning Lightning modules with Optuna."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "jsonargparse[signatures]>=4.27",
+    "lightning>=2.0",
+    "optuna>=3.0",
+    "optuna-integration[pytorch_lightning]>=4.0",
+    "rich>=13.0",
+    "torch>=2.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+optuna-lightning = "optuna_lightning_cli.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

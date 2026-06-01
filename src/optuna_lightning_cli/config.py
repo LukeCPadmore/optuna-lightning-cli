@@ -1,0 +1,223 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal, TypeAlias
+
+from jsonargparse import ArgumentParser
+from lightning.pytorch import LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.cli import LightningArgumentParser
+
+
+Direction = Literal["minimize", "maximize"]
+DistributionType = Literal["float", "int", "categorical"]
+
+
+@dataclass
+class ObjectConfig:
+    class_path: str
+    init_args: dict[str, Any] = field(default_factory=dict)
+
+
+TrainingConfig: TypeAlias = dict[str, Any]
+
+
+@dataclass
+class StudyConfig:
+    direction: Direction = "minimize"
+    study_name: str | None = None
+    storage: str | None = None
+    load_if_exists: bool = True
+    sampler: ObjectConfig | None = None
+    pruner: ObjectConfig | None = None
+
+
+@dataclass
+class ObjectiveConfig:
+    metric: str
+    enable_pruning: bool = True
+
+
+@dataclass
+class SearchSpaceItem:
+    type: DistributionType
+    low: int | float | None = None
+    high: int | float | None = None
+    choices: list[Any] | None = None
+    log: bool = False
+    step: int | float | None = None
+
+
+@dataclass
+class OptunaConfig:
+    objective: ObjectiveConfig
+    search_space: dict[str, SearchSpaceItem]
+    study: StudyConfig = field(default_factory=StudyConfig)
+    n_trials: int = 10
+
+
+def load_training_config(path: Path) -> TrainingConfig:
+    data = _load_yaml_dict(path)
+    normalized = normalize_training_config(data)
+    _training_parser().parse_object(normalized)
+    return data
+
+
+def normalize_training_config(config: TrainingConfig) -> dict[str, Any]:
+    normalized = {
+        "trainer": config.get("trainer") or {},
+        "model": _flat_object_config(config, "model"),
+    }
+    data = config.get("data", config.get("datamodule"))
+    if data is not None:
+        normalized["data"] = _flat_object_config({"data": data}, "data")
+    return normalized
+
+
+def _training_parser() -> LightningArgumentParser:
+    parser = LightningArgumentParser(exit_on_error=False)
+    parser.add_lightning_class_args(Trainer, "trainer")
+    parser.add_subclass_arguments(LightningModule, "model", required=True)
+    parser.add_subclass_arguments(LightningDataModule, "data", required=False)
+    return parser
+
+
+def load_optuna_config(path: Path) -> OptunaConfig:
+    data = _load_yaml_dict(path)
+    if "objective" not in data:
+        raise ValueError("optuna config requires an 'objective' section")
+    if "search_space" not in data:
+        raise ValueError("optuna config requires a 'search_space' section")
+
+    study_data = data.get("study") or {}
+    objective_data = data["objective"] or {}
+    cfg = OptunaConfig(
+        study=StudyConfig(
+            direction=study_data.get("direction", "minimize"),
+            study_name=study_data.get("study_name"),
+            storage=study_data.get("storage"),
+            load_if_exists=study_data.get("load_if_exists", True),
+            sampler=_optional_object_config(study_data, "sampler"),
+            pruner=_optional_object_config(study_data, "pruner"),
+        ),
+        objective=ObjectiveConfig(
+            metric=objective_data.get("metric"),
+            enable_pruning=objective_data.get("enable_pruning", True),
+        ),
+        n_trials=data.get("n_trials", 10),
+        search_space={
+            path: _search_space_item(path, raw)
+            for path, raw in _normalize_search_space(
+                data.get("search_space") or {}
+            ).items()
+        },
+    )
+    _validate_optuna_config(cfg)
+    return cfg
+
+
+def _load_yaml_dict(path: Path) -> dict[str, Any]:
+    parser = ArgumentParser(exit_on_error=False)
+    parsed = parser.parse_path(str(path), _skip_validation=True)
+    data = parsed.as_dict()
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a YAML mapping")
+    return data
+
+
+def _normalize_search_space(raw: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+
+    def visit(prefix: list[str], value: Any) -> None:
+        if isinstance(value, dict) and "type" not in value:
+            for key, child in value.items():
+                visit([*prefix, key], child)
+            return
+        normalized[".".join(prefix)] = value
+
+    for key, value in raw.items():
+        visit([key], value)
+    return normalized
+
+
+def _object_config(data: dict[str, Any], key: str) -> ObjectConfig:
+    value = data.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be a mapping with class_path/init_args")
+    class_path = value.get("class_path")
+    if not isinstance(class_path, str) or not class_path:
+        raise ValueError(f"'{key}.class_path' must be a non-empty string")
+    init_args = value.get("init_args") or {}
+    if not isinstance(init_args, dict):
+        raise ValueError(f"'{key}.init_args' must be a mapping")
+    return ObjectConfig(class_path=class_path, init_args=init_args)
+
+
+def _flat_object_config(data: dict[str, Any], key: str) -> dict[str, Any]:
+    value = data.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be a mapping with class_path and constructor args")
+    class_path = value.get("class_path")
+    if not isinstance(class_path, str) or not class_path:
+        raise ValueError(f"'{key}.class_path' must be a non-empty string")
+    if "init_args" in value:
+        raise ValueError(
+            f"'{key}.init_args' is not supported; put constructor args directly under '{key}'"
+        )
+    init_args = {k: v for k, v in value.items() if k != "class_path"}
+    return {"class_path": class_path, "init_args": init_args}
+
+
+def _optional_object_config(data: dict[str, Any], key: str) -> ObjectConfig | None:
+    if key not in data or data[key] is None:
+        return None
+    return _object_config(data, key)
+
+
+def _search_space_item(path: str, raw: Any) -> SearchSpaceItem:
+    if not isinstance(raw, dict):
+        raise ValueError(f"search_space.{path} must be a mapping")
+    return SearchSpaceItem(
+        type=raw.get("type"),
+        low=raw.get("low"),
+        high=raw.get("high"),
+        choices=raw.get("choices"),
+        log=raw.get("log", False),
+        step=raw.get("step"),
+    )
+
+
+def _validate_optuna_config(cfg: OptunaConfig) -> None:
+    if cfg.study.direction not in {"minimize", "maximize"}:
+        raise ValueError("study.direction must be 'minimize' or 'maximize'")
+    if not isinstance(cfg.objective.metric, str) or not cfg.objective.metric:
+        raise ValueError("objective.metric must be a non-empty string")
+    if not isinstance(cfg.n_trials, int) or cfg.n_trials < 1:
+        raise ValueError("n_trials must be a positive integer")
+    if not cfg.search_space:
+        raise ValueError("search_space must contain at least one parameter")
+    for path, item in cfg.search_space.items():
+        if not path:
+            raise ValueError("search_space keys must be non-empty dotted paths")
+        if item.type == "float":
+            _validate_numeric(path, item, (int, float))
+        elif item.type == "int":
+            _validate_numeric(path, item, (int,))
+        elif item.type == "categorical":
+            if not isinstance(item.choices, list) or not item.choices:
+                raise ValueError(f"search_space.{path}.choices must be a non-empty list")
+        else:
+            raise ValueError(
+                f"search_space.{path}.type must be one of: float, int, categorical"
+            )
+
+
+def _validate_numeric(
+    path: str, item: SearchSpaceItem, expected_type: tuple[type, ...]
+) -> None:
+    if not isinstance(item.low, expected_type) or not isinstance(item.high, expected_type):
+        raise ValueError(f"search_space.{path}.low/high must match type '{item.type}'")
+    if item.low >= item.high:
+        raise ValueError(f"search_space.{path}.low must be less than high")
+    if item.log and item.low <= 0:
+        raise ValueError(f"search_space.{path}.low must be positive when log=true")
