@@ -1,5 +1,12 @@
 # optuna-lightning-cli
 
+[![CI](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/ci.yml)
+[![Docs](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/docs.yml/badge.svg)](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/docs.yml)
+[![Publish](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/publish.yml/badge.svg)](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/publish.yml)
+[![PyPI](https://img.shields.io/pypi/v/optuna-lightning-cli.svg)](https://pypi.org/project/optuna-lightning-cli/)
+[![Python](https://img.shields.io/pypi/pyversions/optuna-lightning-cli.svg)](https://pypi.org/project/optuna-lightning-cli/)
+[![Docs site](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://lukecpadmore.github.io/optuna-lightning-cli/)
+
 A small Typer CLI for tuning `lightning.pytorch` modules with Optuna.
 
 ```bash
