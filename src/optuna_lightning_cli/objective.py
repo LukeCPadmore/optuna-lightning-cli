@@ -15,7 +15,9 @@ from optuna_lightning_cli.config import (
 from optuna_lightning_cli.instantiate import instantiate_training, instantiate_untyped
 
 
-def run_study(training_config: TrainingConfig, optuna_config: OptunaConfig) -> optuna.Study:
+def run_study(
+    training_config: TrainingConfig, optuna_config: OptunaConfig
+) -> optuna.Study:
     study = optuna.create_study(
         direction=optuna_config.study.direction,
         study_name=optuna_config.study.study_name,

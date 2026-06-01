@@ -116,7 +116,9 @@ def print_config(
 def list_studies(
     storage: Annotated[
         str,
-        typer.Option("--storage", help="Optuna storage URL, for example sqlite:///optuna.db."),
+        typer.Option(
+            "--storage", help="Optuna storage URL, for example sqlite:///optuna.db."
+        ),
     ],
 ) -> None:
     summaries = list_study_summaries(storage)
@@ -139,7 +141,9 @@ def list_studies(
 def show_study(
     storage: Annotated[
         str,
-        typer.Option("--storage", help="Optuna storage URL, for example sqlite:///optuna.db."),
+        typer.Option(
+            "--storage", help="Optuna storage URL, for example sqlite:///optuna.db."
+        ),
     ],
     study_name: Annotated[
         str,

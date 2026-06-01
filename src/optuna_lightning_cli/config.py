@@ -156,7 +156,9 @@ def _object_config(data: dict[str, Any], key: str) -> ObjectConfig:
 def _flat_object_config(data: dict[str, Any], key: str) -> dict[str, Any]:
     value = data.get(key)
     if not isinstance(value, dict):
-        raise ValueError(f"'{key}' must be a mapping with class_path and constructor args")
+        raise ValueError(
+            f"'{key}' must be a mapping with class_path and constructor args"
+        )
     class_path = value.get("class_path")
     if not isinstance(class_path, str) or not class_path:
         raise ValueError(f"'{key}.class_path' must be a non-empty string")
@@ -205,7 +207,9 @@ def _validate_optuna_config(cfg: OptunaConfig) -> None:
             _validate_numeric(path, item, (int,))
         elif item.type == "categorical":
             if not isinstance(item.choices, list) or not item.choices:
-                raise ValueError(f"search_space.{path}.choices must be a non-empty list")
+                raise ValueError(
+                    f"search_space.{path}.choices must be a non-empty list"
+                )
         else:
             raise ValueError(
                 f"search_space.{path}.type must be one of: float, int, categorical"
@@ -215,7 +219,9 @@ def _validate_optuna_config(cfg: OptunaConfig) -> None:
 def _validate_numeric(
     path: str, item: SearchSpaceItem, expected_type: tuple[type, ...]
 ) -> None:
-    if not isinstance(item.low, expected_type) or not isinstance(item.high, expected_type):
+    if not isinstance(item.low, expected_type) or not isinstance(
+        item.high, expected_type
+    ):
         raise ValueError(f"search_space.{path}.low/high must match type '{item.type}'")
     if item.low >= item.high:
         raise ValueError(f"search_space.{path}.low must be less than high")

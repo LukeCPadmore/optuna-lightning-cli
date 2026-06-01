@@ -7,7 +7,11 @@ from optuna_lightning_cli.config import (
     OptunaConfig,
     SearchSpaceItem,
 )
-from optuna_lightning_cli.objective import metric_to_float, objective, patch_config_value
+from optuna_lightning_cli.objective import (
+    metric_to_float,
+    objective,
+    patch_config_value,
+)
 
 
 def test_patch_config_value_sets_nested_value():
