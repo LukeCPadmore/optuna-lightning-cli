@@ -1,6 +1,7 @@
 study:
   direction: minimize
   study_name: example
+  storage: sqlite:///optuna.db
   load_if_exists: true
 
 objective:

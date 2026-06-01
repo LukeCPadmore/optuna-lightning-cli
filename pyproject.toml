@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "optuna-lightning-cli"
 version = "0.1.0"
-description = "A small Typer CLI for tuning Lightning modules with Optuna."
+description = "A Typer CLI application for tuning Lightning modules with Optuna."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
