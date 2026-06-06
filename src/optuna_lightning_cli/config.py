@@ -39,6 +39,11 @@ class ObjectiveConfig:
 
 
 @dataclass
+class OutputConfig:
+    best_config_path: str | None = None
+
+
+@dataclass
 class SearchSpaceItem:
     type: DistributionType
     low: int | float | None = None
@@ -53,6 +58,7 @@ class OptunaConfig:
     objective: ObjectiveConfig
     search_space: dict[str, SearchSpaceItem]
     study: StudyConfig = field(default_factory=StudyConfig)
+    output: OutputConfig = field(default_factory=OutputConfig)
     n_trials: int = 10
 
 
@@ -91,6 +97,7 @@ def load_optuna_config(path: Path) -> OptunaConfig:
 
     study_data = data.get("study") or {}
     objective_data = data["objective"] or {}
+    output_data = data.get("output") or {}
     cfg = OptunaConfig(
         study=StudyConfig(
             direction=study_data.get("direction", "minimize"),
@@ -103,6 +110,9 @@ def load_optuna_config(path: Path) -> OptunaConfig:
         objective=ObjectiveConfig(
             metric=objective_data.get("metric"),
             enable_pruning=objective_data.get("enable_pruning", True),
+        ),
+        output=OutputConfig(
+            best_config_path=output_data.get("best_config_path"),
         ),
         n_trials=data.get("n_trials", 10),
         search_space={

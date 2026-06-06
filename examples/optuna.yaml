@@ -8,6 +8,9 @@ objective:
   metric: val_loss
   enable_pruning: true
 
+output:
+  best_config_path: null
+
 n_trials: 20
 
 search_space:

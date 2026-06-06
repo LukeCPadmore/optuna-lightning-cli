@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 import optuna
 from optuna_integration import PyTorchLightningPruningCallback
+import yaml
 
 from optuna_lightning_cli.config import (
     OptunaConfig,
@@ -31,6 +33,30 @@ def run_study(
         n_trials=optuna_config.n_trials,
     )
     return study
+
+
+def save_best_config(
+    training_config: TrainingConfig,
+    study: optuna.Study,
+    path: Path,
+) -> None:
+    best_config = best_training_config(training_config, study)
+    normalized = normalize_training_config(best_config)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        yaml.safe_dump(normalized, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+
+
+def best_training_config(
+    training_config: TrainingConfig,
+    study: optuna.Study,
+) -> TrainingConfig:
+    best_config = deepcopy(training_config)
+    for path, value in study.best_params.items():
+        patch_config_value(best_config, path, value)
+    return best_config
 
 
 def objective(

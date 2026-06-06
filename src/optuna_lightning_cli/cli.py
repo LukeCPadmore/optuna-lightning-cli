@@ -14,7 +14,7 @@ from optuna_lightning_cli.config import (
     load_training_config,
     normalize_training_config,
 )
-from optuna_lightning_cli.objective import run_study
+from optuna_lightning_cli.objective import run_study, save_best_config
 from optuna_lightning_cli.studies import (
     best_value,
     list_study_summaries,
@@ -60,11 +60,23 @@ def tune(
             help="Path to the Optuna tuning YAML config.",
         ),
     ],
+    best_config_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--best-config-out",
+            file_okay=True,
+            dir_okay=False,
+            writable=True,
+            help="Path to write the best normalized LightningCLI config.",
+        ),
+    ] = None,
 ) -> None:
     training = load_training_config(training_config)
     optuna_cfg = load_optuna_config(optuna_config)
 
     study = run_study(training, optuna_cfg)
+    output_path = _best_config_path(best_config_out, optuna_cfg.output.best_config_path)
+    save_best_config(training, study, output_path)
 
     table = Table(title="Best Trial")
     table.add_column("Field")
@@ -72,6 +84,7 @@ def tune(
     table.add_row("number", str(study.best_trial.number))
     table.add_row("value", str(study.best_value))
     table.add_row("params", str(study.best_params))
+    table.add_row("best config", str(output_path))
     console.print(table)
 
 
@@ -204,6 +217,14 @@ def _print_yaml(payload) -> None:
         default_flow_style=False,
     )
     console.print(Syntax(text, "yaml"))
+
+
+def _best_config_path(cli_path: Path | None, config_path: str | None) -> Path:
+    if cli_path is not None:
+        return cli_path
+    if config_path:
+        return Path(config_path)
+    return Path.cwd() / "best_config.yaml"
 
 
 if __name__ == "__main__":
