@@ -15,6 +15,10 @@ from optuna_lightning_cli.config import (
     normalize_training_config,
 )
 from optuna_lightning_cli.instantiate import instantiate_training, instantiate_untyped
+from optuna_lightning_cli.mlflow import (
+    ensure_mlflow_parent_run_id,
+    with_mlflow_trial_logger,
+)
 
 
 def run_study(
@@ -28,8 +32,15 @@ def run_study(
         sampler=_optional_untyped(optuna_config.study.sampler),
         pruner=_optional_untyped(optuna_config.study.pruner),
     )
+    mlflow_parent_run_id = ensure_mlflow_parent_run_id(study, training_config)
     study.optimize(
-        lambda trial: objective(trial, training_config, optuna_config),
+        lambda trial: objective(
+            trial,
+            training_config,
+            optuna_config,
+            study=study,
+            mlflow_parent_run_id=mlflow_parent_run_id,
+        ),
         n_trials=optuna_config.n_trials,
     )
     return study
@@ -63,6 +74,8 @@ def objective(
     trial: optuna.Trial,
     training_config: TrainingConfig,
     optuna_config: OptunaConfig,
+    study: optuna.Study | None = None,
+    mlflow_parent_run_id: str | None = None,
 ) -> float:
     trial_config = deepcopy(training_config)
 
@@ -71,6 +84,13 @@ def objective(
             trial_config,
             path,
             sample_value(trial, path, distribution),
+        )
+    if study is not None:
+        trial_config = with_mlflow_trial_logger(
+            trial_config,
+            study,
+            trial,
+            mlflow_parent_run_id,
         )
 
     trainer, model, datamodule = instantiate_training(
