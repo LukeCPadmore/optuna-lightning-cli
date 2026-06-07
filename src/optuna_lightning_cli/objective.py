@@ -1,3 +1,5 @@
+"""Study execution, objective evaluation, and best-config persistence."""
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -24,6 +26,17 @@ from optuna_lightning_cli.mlflow import (
 def run_study(
     training_config: TrainingConfig, optuna_config: OptunaConfig
 ) -> optuna.Study:
+    """Create and optimize an Optuna study for the provided config pair.
+
+    Args:
+        training_config: Base Lightning training config that will be copied
+            and patched for each trial.
+        optuna_config: Validated Optuna tuning configuration.
+
+    Returns:
+        The optimized Optuna study.
+    """
+
     study = optuna.create_study(
         direction=optuna_config.study.direction,
         study_name=optuna_config.study.study_name,
@@ -51,6 +64,14 @@ def save_best_config(
     study: optuna.Study,
     path: Path,
 ) -> None:
+    """Write the best discovered training config to disk as YAML.
+
+    Args:
+        training_config: Base Lightning training config.
+        study: Completed study containing the best parameter set.
+        path: Output file path for the normalized best config.
+    """
+
     best_config = best_training_config(training_config, study)
     normalized = normalize_training_config(best_config)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +85,16 @@ def best_training_config(
     training_config: TrainingConfig,
     study: optuna.Study,
 ) -> TrainingConfig:
+    """Patch the best trial parameters into a copy of the base config.
+
+    Args:
+        training_config: Base Lightning training config.
+        study: Completed study whose ``best_params`` will be applied.
+
+    Returns:
+        A deep copy of ``training_config`` with the best parameters patched in.
+    """
+
     best_config = deepcopy(training_config)
     for path, value in study.best_params.items():
         patch_config_value(best_config, path, value)
@@ -77,6 +108,23 @@ def objective(
     study: optuna.Study | None = None,
     mlflow_parent_run_id: str | None = None,
 ) -> float:
+    """Run one Optuna trial by instantiating and fitting the model.
+
+    Args:
+        trial: Active Optuna trial object.
+        training_config: Base Lightning training config to copy and patch.
+        optuna_config: Validated Optuna tuning configuration.
+        study: Optional study object used for MLflow run metadata.
+        mlflow_parent_run_id: Optional MLflow parent run id to attach to the
+            trial run.
+
+    Returns:
+        The scalar metric value reported back to Optuna.
+
+    Raises:
+        ValueError: If the monitored metric is missing or not scalar.
+    """
+
     trial_config = deepcopy(training_config)
 
     for path, distribution in optuna_config.search_space.items():
@@ -119,6 +167,17 @@ def sample_value(
     name: str,
     distribution: SearchSpaceItem,
 ) -> Any:
+    """Sample a single parameter from the configured Optuna distribution.
+
+    Args:
+        trial: Active Optuna trial.
+        name: Dotted parameter path used as the Optuna parameter name.
+        distribution: Validated search-space item describing how to sample.
+
+    Returns:
+        The sampled parameter value.
+    """
+
     if distribution.type == "float":
         return trial.suggest_float(
             name,
@@ -141,6 +200,18 @@ def sample_value(
 
 
 def patch_config_value(config: dict[str, Any], dotted_path: str, value: Any) -> None:
+    """Patch a dotted config path in place.
+
+    Args:
+        config: Nested config dictionary to mutate.
+        dotted_path: Dot-separated path pointing to the value to replace.
+        value: Value to store at the target path.
+
+    Raises:
+        ValueError: If the dotted path is malformed.
+        KeyError: If the path does not exist in the config.
+    """
+
     parts = dotted_path.split(".")
     if any(not part for part in parts):
         raise ValueError(f"invalid dotted path: {dotted_path}")
@@ -156,6 +227,19 @@ def patch_config_value(config: dict[str, Any], dotted_path: str, value: Any) -> 
 
 
 def metric_to_float(value: Any, metric_name: str) -> float:
+    """Convert a logged metric value into a Python float.
+
+    Args:
+        value: Raw metric value from Lightning callback metrics.
+        metric_name: Name of the metric for error reporting.
+
+    Returns:
+        The metric converted to a Python ``float``.
+
+    Raises:
+        ValueError: If the metric is missing or cannot be reduced to a scalar.
+    """
+
     if value is None:
         raise ValueError(f"trainer.callback_metrics does not contain '{metric_name}'")
     if hasattr(value, "detach"):

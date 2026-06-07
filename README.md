@@ -16,7 +16,25 @@ optuna-lightning tune \
 ```
 
 The training config defines the base Lightning objects. The Optuna config
-defines the study, objective metric, trial count, and search space.
+defines the study, objective metric, trial count, and search space. The CLI
+also includes config printing, validation, and persisted study inspection:
+
+```bash
+optuna-lightning print-config \
+  --training-config examples/training.yaml \
+  --optuna-config examples/optuna.yaml
+
+optuna-lightning validate \
+  --training-config examples/training.yaml \
+  --optuna-config examples/optuna.yaml
+
+optuna-lightning studies list --storage sqlite:///optuna.db
+optuna-lightning studies show \
+  --storage sqlite:///optuna.db \
+  --study-name example
+optuna-lightning studies trials \
+  --optuna-config examples/optuna.yaml
+```
 
 `examples/training.yaml` uses LightningCLI-style sections with flat constructor
 arguments:
@@ -38,6 +56,9 @@ data:
 section they patch:
 
 ```yaml
+study:
+  study_name: example
+  storage: sqlite:///optuna.db
 search_space:
   model:
     lr:
@@ -49,3 +70,7 @@ search_space:
       type: categorical
       choices: [32, 64, 128]
 ```
+
+The example Optuna config stores studies in `./optuna.db` relative to the
+directory where the command is run, so `studies trials --optuna-config
+examples/optuna.yaml` can inspect persisted trials later.
