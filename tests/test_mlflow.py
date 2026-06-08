@@ -1,3 +1,5 @@
+import sys
+from types import ModuleType
 from unittest.mock import Mock, patch
 
 import optuna
@@ -103,11 +105,22 @@ def test_ensure_mlflow_parent_run_id_creates_parent_run():
     run = Mock()
     run.info.run_id = "parent-123"
 
-    with patch("mlflow.tracking.MlflowClient") as client_cls:
-        client = client_cls.return_value
-        client.get_experiment_by_name.return_value = experiment
-        client.create_run.return_value = run
+    mlflow_module = ModuleType("mlflow")
+    tracking_module = ModuleType("mlflow.tracking")
+    client_cls = Mock()
+    client = client_cls.return_value
+    client.get_experiment_by_name.return_value = experiment
+    client.create_run.return_value = run
+    tracking_module.MlflowClient = client_cls
+    mlflow_module.tracking = tracking_module
 
+    with patch.dict(
+        sys.modules,
+        {
+            "mlflow": mlflow_module,
+            "mlflow.tracking": tracking_module,
+        },
+    ):
         parent_run_id = ensure_mlflow_parent_run_id(study, training)
 
     assert parent_run_id == "parent-123"

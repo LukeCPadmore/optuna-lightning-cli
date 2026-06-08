@@ -266,7 +266,9 @@ search_space:
     assert "low must be less than high" in result.output
 
 
-def test_tune_writes_best_config_to_current_working_directory(tmp_path: Path):
+def test_tune_writes_best_config_to_current_working_directory(
+    tmp_path: Path, monkeypatch
+):
     training = tmp_path / "training.yaml"
     optuna_config = tmp_path / "optuna.yaml"
     training.write_text(
@@ -297,26 +299,26 @@ search_space:
     study.best_value = 0.5
     study.best_params = {"model.lr": 0.01}
 
-    with runner.isolated_filesystem():
-        with patch("optuna_lightning_cli.cli.run_study", return_value=study):
-            result = runner.invoke(
-                app,
-                [
-                    "tune",
-                    "--training-config",
-                    str(training),
-                    "--optuna-config",
-                    str(optuna_config),
-                ],
-                catch_exceptions=False,
-            )
+    with patch("optuna_lightning_cli.cli.run_study", return_value=study):
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(
+            app,
+            [
+                "tune",
+                "--training-config",
+                str(training),
+                "--optuna-config",
+                str(optuna_config),
+            ],
+            catch_exceptions=False,
+        )
 
-        assert result.exit_code == 0
-        output_path = Path("best_config.yaml")
-        assert output_path.exists()
-        saved = yaml.safe_load(output_path.read_text(encoding="utf-8"))
-        assert saved["model"]["init_args"]["lr"] == 0.01
-        assert "best config" in result.output
+    assert result.exit_code == 0
+    output_path = tmp_path / "best_config.yaml"
+    assert output_path.exists()
+    saved = yaml.safe_load(output_path.read_text(encoding="utf-8"))
+    assert saved["model"]["init_args"]["lr"] == 0.01
+    assert "best config" in result.output
 
 
 def test_tune_best_config_out_overrides_default_and_config_path(tmp_path: Path):
@@ -429,28 +431,28 @@ def test_studies_show_missing_study_fails(tmp_path: Path):
     assert "was not found" in result.output
 
 
-def test_studies_trials_uses_defaults_from_optuna_config(tmp_path: Path):
+def test_studies_trials_uses_defaults_from_optuna_config(tmp_path: Path, monkeypatch):
     examples_optuna = Path(__file__).resolve().parents[1] / "examples" / "optuna.yaml"
-    with runner.isolated_filesystem():
-        storage = "sqlite:///optuna.db"
-        study = optuna.create_study(
-            study_name="example",
-            direction="minimize",
-            storage=storage,
-        )
-        study.optimize(
-            lambda trial: trial.suggest_float("lr", 0.001, 0.1),
-            n_trials=1,
-        )
-        result = runner.invoke(
-            app,
-            [
-                "studies",
-                "trials",
-                "--optuna-config",
-                str(examples_optuna),
-            ],
-        )
+    monkeypatch.chdir(tmp_path)
+    storage = "sqlite:///optuna.db"
+    study = optuna.create_study(
+        study_name="example",
+        direction="minimize",
+        storage=storage,
+    )
+    study.optimize(
+        lambda trial: trial.suggest_float("lr", 0.001, 0.1),
+        n_trials=1,
+    )
+    result = runner.invoke(
+        app,
+        [
+            "studies",
+            "trials",
+            "--optuna-config",
+            str(examples_optuna),
+        ],
+    )
 
     assert result.exit_code == 0
     assert "Trials: example" in result.output
