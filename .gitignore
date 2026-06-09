@@ -7,3 +7,5 @@ build/*
 *.log
 mlruns/*
 mlflow.db
+optuna.db
+data/*

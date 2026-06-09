@@ -178,19 +178,29 @@ def sample_value(
         The sampled parameter value.
     """
 
+    low = distribution.low
+    high = distribution.high
     if distribution.type == "float":
+        if not isinstance(low, (int, float)) or not isinstance(high, (int, float)):
+            raise ValueError(
+                f"search_space.{name}.low/high must match type '{distribution.type}'"
+            )
         return trial.suggest_float(
             name,
-            float(distribution.low),
-            float(distribution.high),
+            float(low),
+            float(high),
             log=distribution.log,
             step=distribution.step,
         )
     if distribution.type == "int":
+        if not isinstance(low, int) or not isinstance(high, int):
+            raise ValueError(
+                f"search_space.{name}.low/high must match type '{distribution.type}'"
+            )
         return trial.suggest_int(
             name,
-            int(distribution.low),
-            int(distribution.high),
+            int(low),
+            int(high),
             log=distribution.log,
             step=distribution.step,
         )

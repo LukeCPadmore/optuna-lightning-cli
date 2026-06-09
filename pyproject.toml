@@ -21,6 +21,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+examples = [
+    "torchvision>=0.15",
+]
+
 test = [
     "pytest>=8.0",
 ]

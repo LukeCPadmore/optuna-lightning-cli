@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, cast
 
 from jsonargparse import ArgumentParser
 from lightning.pytorch import LightningDataModule, LightningModule, Trainer
@@ -190,9 +190,15 @@ def load_optuna_config(path: Path) -> OptunaConfig:
     study_data = data.get("study") or {}
     objective_data = data["objective"] or {}
     output_data = data.get("output") or {}
+    metric = objective_data.get("metric")
+    if not isinstance(metric, str) or not metric:
+        raise ValueError("objective.metric must be a non-empty string")
+    direction = study_data.get("direction", "minimize")
+    if direction not in {"minimize", "maximize"}:
+        raise ValueError("study.direction must be 'minimize' or 'maximize'")
     cfg = OptunaConfig(
         study=StudyConfig(
-            direction=study_data.get("direction", "minimize"),
+            direction=cast(Direction, direction),
             study_name=study_data.get("study_name"),
             storage=study_data.get("storage"),
             load_if_exists=study_data.get("load_if_exists", True),
@@ -200,7 +206,7 @@ def load_optuna_config(path: Path) -> OptunaConfig:
             pruner=_optional_object_config(study_data, "pruner"),
         ),
         objective=ObjectiveConfig(
-            metric=objective_data.get("metric"),
+            metric=metric,
             enable_pruning=objective_data.get("enable_pruning", True),
         ),
         output=OutputConfig(
@@ -281,8 +287,13 @@ def _optional_object_config(data: dict[str, Any], key: str) -> ObjectConfig | No
 def _search_space_item(path: str, raw: Any) -> SearchSpaceItem:
     if not isinstance(raw, dict):
         raise ValueError(f"search_space.{path} must be a mapping")
+    distribution_type = raw.get("type")
+    if distribution_type not in {"float", "int", "categorical"}:
+        raise ValueError(
+            f"search_space.{path}.type must be one of: float, int, categorical"
+        )
     return SearchSpaceItem(
-        type=raw.get("type"),
+        type=cast(DistributionType, distribution_type),
         low=raw.get("low"),
         high=raw.get("high"),
         choices=raw.get("choices"),
@@ -321,11 +332,13 @@ def _validate_optuna_config(cfg: OptunaConfig) -> None:
 def _validate_numeric(
     path: str, item: SearchSpaceItem, expected_type: tuple[type, ...]
 ) -> None:
-    if not isinstance(item.low, expected_type) or not isinstance(
-        item.high, expected_type
-    ):
+    low = item.low
+    high = item.high
+    if not isinstance(low, expected_type) or not isinstance(high, expected_type):
         raise ValueError(f"search_space.{path}.low/high must match type '{item.type}'")
-    if item.low >= item.high:
+    numeric_low = cast(int | float, low)
+    numeric_high = cast(int | float, high)
+    if numeric_low >= numeric_high:
         raise ValueError(f"search_space.{path}.low must be less than high")
-    if item.log and item.low <= 0:
+    if item.log and numeric_low <= 0:
         raise ValueError(f"search_space.{path}.low must be positive when log=true")

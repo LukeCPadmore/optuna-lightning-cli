@@ -1,0 +1,31 @@
+study:
+  study_name: mnist
+  storage: sqlite:///optuna.db
+  load_if_exists: true
+  direction: maximize
+  sampler:
+    class_path: optuna.samplers.TPESampler
+    init_args:
+      seed: 42
+      multivariate: true
+
+objective:
+  metric: val_acc
+
+output:
+  best_config_path: null
+
+n_trials: 10
+
+search_space:
+  model:
+    lr:
+      type: float
+      low: 0.0001
+      high: 0.1
+      log: true
+    hidden_size:
+      type: int
+      low: 64
+      high: 512
+      step: 64

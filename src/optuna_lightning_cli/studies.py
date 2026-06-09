@@ -103,6 +103,27 @@ def best_value(summary: optuna.study.StudySummary) -> str:
     return str(summary.best_trial.value)
 
 
+def objective_column_label(
+    metric: str | None,
+    direction: str | None,
+) -> str:
+    """Render the objective column label for a trial table.
+
+    Args:
+        metric: Objective metric name from the Optuna config, if available.
+        direction: Optimization direction from the loaded study, if available.
+
+    Returns:
+        A labeled column header such as ``"Objective [val_acc, maximize]"`` or
+        plain ``"Value"`` when neither component is known.
+    """
+
+    parts = [part for part in (metric, direction) if part]
+    if not parts:
+        return "Value"
+    return f"Objective [{', '.join(parts)}]"
+
+
 def trial_params_string(trial: optuna.trial.FrozenTrial) -> str:
     """Render a trial's parameters as a compact string.
 

@@ -23,3 +23,9 @@
 ::: optuna_lightning_cli.studies
     options:
       show_source: true
+
+## Examples
+
+::: optuna_lightning_cli.examples.mnist
+    options:
+      show_source: true

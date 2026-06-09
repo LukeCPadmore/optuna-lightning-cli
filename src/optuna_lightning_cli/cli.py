@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
+from rich.text import Text
 import yaml
 
 from optuna_lightning_cli.config import (
@@ -17,6 +18,7 @@ from optuna_lightning_cli.config import (
 from optuna_lightning_cli.objective import run_study, save_best_config
 from optuna_lightning_cli.studies import (
     best_value,
+    objective_column_label,
     list_study_summaries,
     load_study,
     optuna_config_to_dict,
@@ -118,14 +120,11 @@ def print_config(
 ) -> None:
     training = load_training_config(training_config)
     optuna_cfg = load_optuna_config(optuna_config)
-    payload = {
-        "training": {
-            "user": training,
-            "lightning_cli": normalize_training_config(training),
-        },
-        "optuna": optuna_config_to_dict(optuna_cfg),
-    }
-    _print_yaml(payload)
+
+    console.rule("Lightning Base Config")
+    _print_yaml(normalize_training_config(training))
+    console.rule("Optuna Config")
+    _print_yaml(optuna_config_to_dict(optuna_cfg))
 
 
 @app.command()
@@ -302,7 +301,15 @@ def list_trials(
     table = Table(title=f"Trials: {study.study_name}")
     table.add_column("Trial", justify="right")
     table.add_column("State")
-    table.add_column("Value", justify="right")
+    objective_label = objective_column_label(
+        optuna_cfg.objective.metric if optuna_cfg else None,
+        study.directions[0].name.lower() if study.directions else None,
+    )
+    table.add_column(
+        Text(objective_label, no_wrap=True),
+        justify="right",
+        min_width=len(objective_label),
+    )
     table.add_column("Duration")
     table.add_column("Params")
     for trial in study.trials:

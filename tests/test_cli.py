@@ -50,7 +50,8 @@ search_space:
     )
 
     assert result.exit_code == 0
-    assert "lightning_cli" in result.output
+    assert "Lightning Base Config" in result.output
+    assert "Optuna Config" in result.output
     assert "init_args" in result.output
     assert "model.lr" in result.output
 
@@ -432,16 +433,18 @@ def test_studies_show_missing_study_fails(tmp_path: Path):
 
 
 def test_studies_trials_uses_defaults_from_optuna_config(tmp_path: Path, monkeypatch):
-    examples_optuna = Path(__file__).resolve().parents[1] / "examples" / "optuna.yaml"
+    examples_optuna = (
+        Path(__file__).resolve().parents[1] / "examples" / "mnist-optuna.yaml"
+    )
     monkeypatch.chdir(tmp_path)
     storage = "sqlite:///optuna.db"
     study = optuna.create_study(
-        study_name="example",
-        direction="minimize",
+        study_name="mnist",
+        direction="maximize",
         storage=storage,
     )
     study.optimize(
-        lambda trial: trial.suggest_float("lr", 0.001, 0.1),
+        lambda trial: trial.suggest_float("model.lr", 0.001, 0.1),
         n_trials=1,
     )
     result = runner.invoke(
@@ -455,8 +458,9 @@ def test_studies_trials_uses_defaults_from_optuna_config(tmp_path: Path, monkeyp
     )
 
     assert result.exit_code == 0
-    assert "Trials: example" in result.output
-    assert "lr=" in result.output
+    assert "Trials: mnist" in result.output
+    assert "Objective [val_acc, maximize]" in result.output
+    assert "model.lr=" in result.output
     assert "0" in result.output
 
 
@@ -503,6 +507,7 @@ search_space:
 
     assert result.exit_code == 0
     assert "Trials: actual" in result.output
+    assert "Objective [val_loss, minimize]" in result.output
     assert "x=" in result.output
     assert "ignored" not in result.output
 
@@ -537,5 +542,6 @@ def test_studies_trials_renders_trial_rows(tmp_path: Path):
 
     assert result.exit_code == 0
     assert "Trials: example" in result.output
+    assert "Objective [minimize]" in result.output
     assert "complete" in result.output
     assert "x=" in result.output

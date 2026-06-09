@@ -9,68 +9,48 @@
 
 A small Typer CLI for tuning `lightning.pytorch` modules with Optuna.
 
+Install the MNIST example extra and run the sample HPO flow:
+
 ```bash
+pip install -e ".[examples]"
+
 optuna-lightning tune \
-  --training-config examples/training.yaml \
-  --optuna-config examples/optuna.yaml
+  --training-config examples/mnist-training.yaml \
+  --optuna-config examples/mnist-optuna.yaml
 ```
 
-The training config defines the base Lightning objects. The Optuna config
-defines the study, objective metric, trial count, and search space. The CLI
-also includes config printing, validation, and persisted study inspection:
+`MnistClassifier` owns the training loop (`training_step`,
+`validation_step`, and `configure_optimizers`). `MnistDataModule` owns the
+MNIST download and data loaders. The CLI validates the config pair, patches
+Optuna samples into the flat training config, and hands everything to
+`Trainer.fit()`.
+
+`print-config` renders the normalized Lightning config under a `Lightning
+Base Config` header and the Optuna config under an `Optuna Config` header.
+
+The CLI also includes config printing, validation, and persisted study
+inspection:
 
 ```bash
 optuna-lightning print-config \
-  --training-config examples/training.yaml \
-  --optuna-config examples/optuna.yaml
+  --training-config examples/mnist-training.yaml \
+  --optuna-config examples/mnist-optuna.yaml
 
 optuna-lightning validate \
-  --training-config examples/training.yaml \
-  --optuna-config examples/optuna.yaml
+  --training-config examples/mnist-training.yaml \
+  --optuna-config examples/mnist-optuna.yaml
 
 optuna-lightning studies list --storage sqlite:///optuna.db
 optuna-lightning studies show \
   --storage sqlite:///optuna.db \
-  --study-name example
+  --study-name mnist
 optuna-lightning studies trials \
-  --optuna-config examples/optuna.yaml
-```
-
-`examples/training.yaml` uses LightningCLI-style sections with flat constructor
-arguments:
-
-```yaml
-trainer:
-  max_epochs: 3
-
-model:
-  class_path: my_project.models.MyLightningModule
-  lr: 0.001
-
-data:
-  class_path: my_project.data.MyDataModule
-  batch_size: 32
-```
-
-`examples/optuna.yaml` nests search-space entries under the training config
-section they patch:
-
-```yaml
-study:
-  study_name: example
-  storage: sqlite:///optuna.db
-search_space:
-  model:
-    lr:
-      type: float
-      low: 0.0001
-      high: 0.1
-      log: true
-    hidden_size:
-      type: categorical
-      choices: [32, 64, 128]
+  --optuna-config examples/mnist-optuna.yaml
 ```
 
 The example Optuna config stores studies in `./optuna.db` relative to the
 directory where the command is run, so `studies trials --optuna-config
-examples/optuna.yaml` can inspect persisted trials later.
+examples/mnist-optuna.yaml` can inspect persisted trials later. The trials
+table labels the value column as `Objective [val_acc, maximize]` for the MNIST
+example, and storage-only inspection still shows the study direction in the
+column header.
