@@ -1,0 +1,18 @@
+trainer:
+  max_epochs: 2
+  accelerator: cpu
+  devices: 1
+  logger: false
+  enable_checkpointing: false
+  enable_progress_bar: false
+
+model:
+  class_path: optuna_lightning_cli.examples.mnist.MnistClassifier
+  lr: 0.001
+  hidden_size: 128
+
+data:
+  class_path: optuna_lightning_cli.examples.mnist.MnistDataModule
+  data_dir: ./data/mnist
+  batch_size: 128
+  download: true

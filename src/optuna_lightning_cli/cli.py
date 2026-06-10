@@ -7,6 +7,7 @@ import typer
 from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
+from rich.text import Text
 import yaml
 
 from optuna_lightning_cli.config import (
@@ -17,12 +18,16 @@ from optuna_lightning_cli.config import (
 from optuna_lightning_cli.objective import run_study, save_best_config
 from optuna_lightning_cli.studies import (
     best_value,
+    objective_column_label,
     list_study_summaries,
     load_study,
     optuna_config_to_dict,
+    trial_duration_string,
+    trial_params_string,
     serialize_config,
     state_counts,
 )
+from optuna_lightning_cli.validation import validate_configs
 
 
 app = typer.Typer(help="Tune Lightning modules with Optuna.")
@@ -115,14 +120,45 @@ def print_config(
 ) -> None:
     training = load_training_config(training_config)
     optuna_cfg = load_optuna_config(optuna_config)
-    payload = {
-        "training": {
-            "user": training,
-            "lightning_cli": normalize_training_config(training),
-        },
-        "optuna": optuna_config_to_dict(optuna_cfg),
-    }
-    _print_yaml(payload)
+
+    console.rule("Lightning Base Config")
+    _print_yaml(normalize_training_config(training))
+    console.rule("Optuna Config")
+    _print_yaml(optuna_config_to_dict(optuna_cfg))
+
+
+@app.command()
+def validate(
+    training_config: Annotated[
+        Path,
+        typer.Option(
+            "--training-config",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            help="Path to the base Lightning training YAML config.",
+        ),
+    ],
+    optuna_config: Annotated[
+        Path,
+        typer.Option(
+            "--optuna-config",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            help="Path to the Optuna tuning YAML config.",
+        ),
+    ],
+) -> None:
+    try:
+        training = load_training_config(training_config)
+        optuna_cfg = load_optuna_config(optuna_config)
+        validate_configs(training, optuna_cfg)
+    except Exception as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print("Validation passed")
 
 
 @studies_app.command("list")
@@ -208,6 +244,83 @@ def show_study(
         for name, value in best_trial.params.items():
             params.add_row(name, str(value))
         console.print(params)
+
+
+@studies_app.command("trials")
+def list_trials(
+    optuna_config: Annotated[
+        Path | None,
+        typer.Option(
+            "--optuna-config",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            help="Path to the Optuna tuning YAML config.",
+        ),
+    ] = None,
+    storage: Annotated[
+        str | None,
+        typer.Option(
+            "--storage",
+            help="Optuna storage URL, for example sqlite:///optuna.db.",
+        ),
+    ] = None,
+    study_name: Annotated[
+        str | None,
+        typer.Option(
+            "--study-name",
+            help="Name of the study to inspect.",
+        ),
+    ] = None,
+) -> None:
+    optuna_cfg = load_optuna_config(optuna_config) if optuna_config else None
+    resolved_storage = storage or (optuna_cfg.study.storage if optuna_cfg else None)
+    resolved_study_name = study_name or (
+        optuna_cfg.study.study_name if optuna_cfg else None
+    )
+
+    if not resolved_storage:
+        raise typer.BadParameter(
+            "storage must be provided via --storage or optuna config study.storage"
+        )
+    if not resolved_study_name:
+        raise typer.BadParameter(
+            "study-name must be provided via --study-name or optuna config "
+            "study.study_name"
+        )
+
+    try:
+        study = load_study(study_name=resolved_study_name, storage=resolved_storage)
+    except KeyError as exc:
+        raise typer.BadParameter(
+            f"Study '{resolved_study_name}' was not found in storage "
+            f"'{resolved_storage}'."
+        ) from exc
+
+    table = Table(title=f"Trials: {study.study_name}")
+    table.add_column("Trial", justify="right")
+    table.add_column("State")
+    objective_label = objective_column_label(
+        optuna_cfg.objective.metric if optuna_cfg else None,
+        study.directions[0].name.lower() if study.directions else None,
+    )
+    table.add_column(
+        Text(objective_label, no_wrap=True),
+        justify="right",
+        min_width=len(objective_label),
+    )
+    table.add_column("Duration")
+    table.add_column("Params")
+    for trial in study.trials:
+        table.add_row(
+            str(trial.number),
+            trial.state.name.lower(),
+            "-" if trial.value is None else str(trial.value),
+            trial_duration_string(trial),
+            trial_params_string(trial),
+        )
+    console.print(table)
 
 
 def _print_yaml(payload) -> None:

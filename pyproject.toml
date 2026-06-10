@@ -15,12 +15,22 @@ dependencies = [
     "optuna-integration[pytorch_lightning]>=4.0",
     "rich>=13.0",
     "torch>=2.0",
-    "typer>=0.12",
+    "typer>=0.12"
 ]
 
 [project.optional-dependencies]
+examples = [
+    "torchvision>=0.15",
+]
+
 test = [
     "pytest>=8.0",
+]
+
+dev = [
+    "types-pyyaml>=6.0.12.20260518",
+    "pre-commit>=4.6.0",
+    "mlflow"
 ]
 
 docs = [
