@@ -22,8 +22,12 @@ def ensure_mlflow_parent_run_id(
     if parent_run_id:
         return str(parent_run_id)
 
-    from mlflow.tracking import MlflowClient
-
+    try:
+        from mlflow.tracking import MlflowClient
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            "MLflow is required when using the MLFlowLogger. Install it with `pip install mlflow`."
+        ) from exc
     client = MlflowClient(
         tracking_uri=logger.get("tracking_uri"),
     )
