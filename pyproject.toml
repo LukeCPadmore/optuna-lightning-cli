@@ -15,8 +15,7 @@ dependencies = [
     "optuna-integration[pytorch_lightning]>=4.0",
     "rich>=13.0",
     "torch>=2.0",
-    "typer>=0.12",
-    "mlflow-tracing"
+    "typer>=0.12"
 ]
 
 [project.optional-dependencies]
