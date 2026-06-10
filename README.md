@@ -1,4 +1,4 @@
-# optuna-lightning-cli
+# Optuna Lightning CLI
 
 [![CI](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/ci.yml)
 [![Docs](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/docs.yml/badge.svg)](https://github.com/LukeCPadmore/optuna-lightning-cli/actions/workflows/docs.yml)

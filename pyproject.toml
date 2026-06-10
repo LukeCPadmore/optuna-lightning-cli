@@ -7,6 +7,8 @@ name = "optuna-lightning-cli"
 version = "0.1.0"
 description = "A Typer CLI application for tuning Lightning modules with Optuna."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICEN[CS]E.*"]
 requires-python = ">=3.10"
 dependencies = [
     "jsonargparse[signatures]>=4.27",
@@ -18,9 +20,20 @@ dependencies = [
     "typer>=0.12"
 ]
 
+[project.urls]
+Documentation = "https://lukecpadmore.github.io/optuna-lightning-cli/"
+Repository = "https://github.com/LukeCPadmore/optuna-lightning-cli"
+Issues = "https://github.com/LukeCPadmore/optuna-lightning-cli/issues"
+Changelog = "https://github.com/LukeCPadmore/optuna-lightning-cli/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 examples = [
     "torchvision>=0.15",
+]
+
+ci = [
+    "ruff>=0.12.0",
+    "twine>=6.0",
 ]
 
 test = [
@@ -30,7 +43,8 @@ test = [
 dev = [
     "types-pyyaml>=6.0.12.20260518",
     "pre-commit>=4.6.0",
-    "mlflow"
+    "mlflow",
+    "ruff>=0.12.0"
 ]
 
 docs = [
